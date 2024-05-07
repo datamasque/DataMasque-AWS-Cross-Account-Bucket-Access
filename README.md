@@ -20,14 +20,14 @@ This template will create the IAM role that DataMasque's EC2 or EKS instance wil
 [datamasque-crossaccount-policy-datamasque-hosted.yaml](datamasque-crossaccount-policy-datamasque-hosted.yaml)
 
 ```shell
-export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
+export RoleName=
 aws cloudformation create-stack \
   --stack-name datamasque-crossaccount-policy \
-  --template-body file://datamasque-crossaccount-policy.yaml \
+  --template-body file://datamasque-crossaccount-policy-datamasque-hosted.yaml \
   --parameters \
         ParameterKey=PolicyName,ParameterValue=datamasque-crossaccount-policy \
         ParameterKey=AssumableRoleName,ParameterValue=datamasque-crossaccount-role \
-        ParameterKey=Entity,ParameterValue=<INSTANCE/EKS ROLE> \
+        ParameterKey=Entity,ParameterValue=${RoleName} \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
@@ -64,6 +64,8 @@ aws cloudformation create-stack \
         ParameterKey=DataMasqueRoleARN,ParameterValue=arn:aws:iam::471112991048:user/fabiotest \
   --capabilities CAPABILITY_NAMED_IAM
 ```
+
+
 
 
 
