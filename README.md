@@ -17,7 +17,7 @@ To manage this setup, we use cross-account IAM roles. Below is a description of 
 
 This template will create the IAM role that DataMasque's EC2 or EKS instance will assume, and it attaches a policy that enables the role to assume roles in other accounts. The policy provide access to Assume all roles named `datamasque-crossaccount-role` in every account `arn:aws:iam::*:role/datamasque-crossaccount-role`.
 
-[a relative link](datamasque-crossaccount-policy-datamasque-hosted.yaml)
+[datamasque-crossaccount-policy-datamasque-hosted.yaml](datamasque-crossaccount-policy-datamasque-hosted.yaml)
 
 ```shell
 export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
@@ -37,7 +37,7 @@ aws cloudformation create-stack \
 
 This template will create an IAM role that can be assumed by the role in Account A, and it attaches a policy that specifies read only to all S3 buckets for discovery and read. The template will create a Role named `datamasque-crossaccount-role` using the AWS Managed Policy `arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess`. It's recommended to use this template in accounts defining as Source of the data, Production, etc.
 
-[a relative link](datamasque-crossaccount-role-RO.yaml)
+[datamasque-crossaccount-role-RO.yaml](datamasque-crossaccount-role-RO.yaml)
 
 ```shell
 export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
@@ -53,7 +53,7 @@ aws cloudformation create-stack \
 #### Destination (Read Write):
 This template will create an IAM role that can be assumed by the role in Account A, and it attaches a policy that specifies read write to all S3 buckets for masking and write. The template will create a Role named `datamasque-crossaccount-role` and also a policy required for Writing files `datamasque-crossacount-policy`. It's recommended to use this template in accounts defining as Destination of the data, non production, etc.
 
-[a relative link](datamasque-crossaccount-role-RW-dest.yaml)
+[datamasque-crossaccount-role-RW-dest.yaml](datamasque-crossaccount-role-RW-dest.yaml)
 
 ```shell
 aws cloudformation create-stack \
@@ -64,8 +64,6 @@ aws cloudformation create-stack \
         ParameterKey=DataMasqueRoleARN,ParameterValue=arn:aws:iam::471112991048:user/fabiotest \
   --capabilities CAPABILITY_NAMED_IAM
 ```
-
-
 
 
 
