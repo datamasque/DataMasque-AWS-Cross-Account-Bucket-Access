@@ -9,15 +9,26 @@ Imagine you have DataMasque deployed on EC2 or an EKS cluster in Account A. You 
 
 ![image description]( 4ca1d554-01b4-454f-8f34-cd61169d199e.png)
 
-## AWS Account and IAM Role Setup
+The following lists the  AWS resources provisioned when these CloudFormation templates is deployed:
+
+- IAM Policy;
+- IAM Role with S3 Permissions;
+
+## Deployment
 To manage this setup, we use cross-account IAM roles. Below is a description of the roles and policies across the different accounts:
 
+### Prerequisites
+
+- AWS CLI configured with appropriate credential for the target AWS account.
+- A DataMasque instance Role ARN and Name, for ec2 deployments or EKS Role Name/Arn for EKS deployments
 
 ### In Account DataMasque is hosted (we will call Account A):
 
 This template will create the IAM role that DataMasque's EC2 or EKS instance will assume, and it attaches a policy that enables the role to assume roles in other accounts. The policy provide access to Assume all roles named `datamasque-crossaccount-role` in every account `arn:aws:iam::*:role/datamasque-crossaccount-role`.
 
 [datamasque-crossaccount-policy-datamasque-hosted.yaml](datamasque-crossaccount-policy-datamasque-hosted.yaml)
+
+Note: The CloudFormation require the Role name to be used as parameter.
 
 ```shell
 export RoleName=
@@ -56,16 +67,14 @@ This template will create an IAM role that can be assumed by the role in Account
 [datamasque-crossaccount-role-RW-dest.yaml](datamasque-crossaccount-role-RW-dest.yaml)
 
 ```shell
+export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
 aws cloudformation create-stack \
   --stack-name datamasque-crossaccount-role \
-  --template-body file://datamasque-crossaccount-role-RW.yaml \
+  --template-body file://datamasque-crossaccount-role-RW-dest.yaml \
   --parameters \
         ParameterKey=RoleName,ParameterValue=datamasque-crossaccount-role \
-        ParameterKey=DataMasqueRoleARN,ParameterValue=arn:aws:iam::471112991048:user/fabiotest \
+        ParameterKey=DataMasqueRoleARN,ParameterValue=${DataMasqueRoleARN} \
   --capabilities CAPABILITY_NAMED_IAM
 ```
-
-
-
 
 
