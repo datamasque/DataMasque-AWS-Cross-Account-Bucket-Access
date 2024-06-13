@@ -1,80 +1,228 @@
-# Enabling Cross-Account Access to S3 Buckets for DataMasque Using IAM Roles
+# Cross-Account Access to S3 Buckets for masking runs.
 
-This guide explains how to configure cross-account access to S3 buckets using IAM roles, enabling DataMasque deployed on EC2 or an EKS cluster in one AWS account to access buckets in other AWS accounts.
+##Introduction
 
-While the provided CloudFormation templates establish a foundational setup for cross-account access, we understand that security needs can vary widely across different deployments. You are encouraged to modify these templates to tailor the security settings to your specific requirements. 
-
-## Scenario Overview
-Imagine you have DataMasque deployed on EC2 or an EKS cluster in Account A. You need to enable DataMasque to access all the S3 buckets located in Accounts B and C.
-
-![image description]( 4ca1d554-01b4-454f-8f34-cd61169d199e.png)
-
-The following lists the  AWS resources provisioned when these CloudFormation templates is deployed:
-
-- IAM Policy;
-- IAM Role with S3 Permissions;
-
-## Deployment
-To manage this setup, we use cross-account IAM roles. Below is a description of the roles and policies across the different accounts:
+This repository contains CloudFormation templates for deploying IAM roles and policies necessary to configure access between the DataMasque application (running on EC2 instances or EKS clusters) and AWS S3 buckets. Comprehensive scenarios covering various patterns are documented here. - https://datamasque.com/portal/documentation/2.19.1/file-connections.html#configuring-access-between-datamasque-and-aws-s3-buckets
 
 ### Prerequisites
 
-- AWS CLI configured with appropriate credential for the target AWS account.
+- AWS CLI configured with the appropriate credentials for the target AWS account.
 - A DataMasque instance Role ARN and Name, for ec2 deployments or EKS Role Name/Arn for EKS deployments
 
-### In Account DataMasque is hosted (we will call Account A):
+The bucket names and prefixes used in these example scenarios are for illustration purposes only. Please update them to match your environment's configurations.
 
-This template will create the IAM role that DataMasque's EC2 or EKS instance will assume, and it attaches a policy that enables the role to assume roles in other accounts. The policy provide access to Assume all roles named `datamasque-crossaccount-role` in every account `arn:aws:iam::*:role/datamasque-crossaccount-role`.
+## Scenario-1: Granting DataMasque Application Access to Source and Destination Buckets within the Same AWS Account.
+The CloudFormation template deploys an IAM policy and attaches it to the IAM role assigned to the EC2 instance running the DataMasque application. This setup enables the DataMasque application to mask data on source S3 buckets and write the masked data to destination S3 buckets. If the source and target S3 buckets are within the same AWS account as the DataMasque application, no additional configuration steps are needed.
 
-[datamasque-crossaccount-policy-datamasque-hosted.yaml](datamasque-crossaccount-policy-datamasque-hosted.yaml)
 
-Note: The CloudFormation require the Role name to be used as parameter.
+
+Required Cloudformation parameters: 
+  - RoleName: The IAM role attached to the EC2 instance running the DataMasque application.
+  - SourceBuckets: Comma-separated ARNs of the source S3 buckets where data needs to be masked.
+  - DestinationBuckets: Comma-separated ARNs of the target S3 buckets where masked data will be written.
+  - SourceBucketsPrefixes: Comma-separated ARNs of the source S3 buckets with prefixes indicating where the data to be masked is stored.
+  - DestinationBucketsPrefixes: Comma-separated ARNs of the destination S3 buckets with prefixes indicating where the masked data needs to be stored.
 
 ```shell
-export RoleName=
+export DmRoleName=DataMasque-Role
+export DestinationBucketsArns=arn:aws:s3:::dest-bucket1,arn:aws:s3:::dest-bucket2
+export SourceBucketsArns=arn:aws:s3:::source-bucket1,arn:aws:s3:::source-bucket2
+export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data,arn:aws:s3:::dest-bucket2/masked_data
+export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data,arn:aws:s3:::source-bucket2/unmasked/user_data
 aws cloudformation create-stack \
-  --stack-name datamasque-crossaccount-policy \
-  --template-body file://datamasque-crossaccount-policy-datamasque-hosted.yaml \
+  --stack-name datamasque-aws-account-s3bucket-access \
+  --template-body file://datamasque-s3-bucket-access-iam-policy.yaml \
+  --parameters \
+        ParameterKey=PolicyName,ParameterValue=datamasque-aws-account-policy \
+        ParameterKey=DestinationBuckets,ParameterValue=\"${DestinationBucketsArns}\" \
+        ParameterKey=SourceBuckets,ParameterValue=\"${SourceBucketsArns}\" \
+        ParameterKey=SourceBucketsPrefixes,ParameterValue=\"${SourceBucketsPrefixes}\" \
+        ParameterKey=DestinationBucketsPrefixes,ParameterValue=\"${DestinationBucketsPrefixes}\" \
+        ParameterKey=DmRoleName,ParameterValue=${DmRoleName} \
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+```
+
+## Scenario 2: Granting DataMasque Application Access to Source and Destination Buckets in Different AWS Accounts Using Cross-Account IAM Roles
+
+
+This scenario requires deploying the CloudFormation stack (`datamasque-crossaccount-access`) in the AWS account where the DataMasque application is running, as well as the CloudFormation stack (`datamasque-crossaccount-s3bucket-access`) in the AWS account where the buckets are configured.
+
+The `datamasque-crossaccount-access` stack deploys an IAM policy containing sts:AssumeRole permissions and attaches it to the IAM role assigned to the EC2 instance running the DataMasque application.
+
+The `datamasque-crossaccount-s3bucket-access` stack deploys an IAM role that can be assumed by the IAM role attached to the EC2 instance running the DataMasque application. It also deploys policies that allow the DataMasque application to perform masking operations on the specified S3 buckets.
+
+Required parameters for Cloudformation stack `datamasque-crossaccount-access`: 
+  - DmRoleName: IAM role name attached to ec2 instance running DataMasque application.
+  - CrossAccountRoles: Comma-separated ARNs of IAM roles deployed in the AWS accounts where the source buckets, which require data masking, are configured.
+
+```shell
+export DmRoleName=DataMasque-Role
+export CrossAccountRoles=arn:aws:iam::2222222222:role/datamasque-s3bucket-access-role,arn:aws:iam::3333333333:role/datamasque-s3bucket-access-role,arn:aws:iam::4444444444:role/datamasque-s3bucket-access-role
+aws cloudformation create-stack \
+  --stack-name datamasque-crossaccount-access \
+  --template-body file://datamasque-crossaccount-access.yaml \
   --parameters \
         ParameterKey=PolicyName,ParameterValue=datamasque-crossaccount-policy \
-        ParameterKey=AssumableRoleName,ParameterValue=datamasque-crossaccount-role \
-        ParameterKey=Entity,ParameterValue=${RoleName} \
-  --capabilities CAPABILITY_NAMED_IAM
+        ParameterKey=CrossAccountRoles,ParameterValue=\"${CrossAccountRoles}\" \
+        ParameterKey=DmRoleName,ParameterValue=${DmRoleName} \
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+
 ```
 
-### Other accounts
+Required parameters for Cloudformation stack `datamasque-crossaccount-s3bucket-access`: 
+  - DmRoleName: IAM role name attached to ec2 instance running DataMasque application.
+  - CrossAccountRole: IAM role name assumed by the DataMasque application to perform data masking operations on S3 buckets.
+  - SourceBuckets: Comma-separated ARNs of the source S3 buckets where data needs to be masked.
+  - DestinationBuckets: Comma-separated ARNs of the target S3 buckets where masked data will be written.
+  - SourceBucketsPrefixes: Comma-separated ARNs of the source S3 buckets with prefixes indicating where the data to be masked is stored.
+  - DestinationBucketsPrefixes: Comma-separated ARNs of the destination S3 buckets with prefixes indicating where the masked data needs to be stored.
 
-#### Source (Read Only):
-
-This template will create an IAM role that can be assumed by the role in Account A, and it attaches a policy that specifies read only to all S3 buckets for discovery and read. The template will create a Role named `datamasque-crossaccount-role` using the AWS Managed Policy `arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess`. It's recommended to use this template in accounts defining as Source of the data, Production, etc.
-
-[datamasque-crossaccount-role-RO.yaml](datamasque-crossaccount-role-RO.yaml)
+This CloudFormation stack should be deployed in the AWS account where the S3 buckets are configured.
 
 ```shell
-export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
+export DmRoleName=DataMasque-Role
+export DestinationBucketsArns=arn:aws:s3:::dest-bucket1,arn:aws:s3:::dest-bucket2
+export SourceBucketsArns=arn:aws:s3:::source-bucket1,arn:aws:s3:::source-bucket2
+export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data,arn:aws:s3:::dest-bucket2/masked_data
+export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data,arn:aws:s3:::source-bucket2/unmasked/user_data
+export CrossAccountRole=arn:aws:iam::2222222222:role/datamasque-s3bucket-access-role
 aws cloudformation create-stack \
-  --stack-name datamasque-crossaccount-role\
-  --template-body file://datamasque-crossaccount-role-RO.yaml \
+  --stack-name datamasque-crossaccount-s3bucket-access \
+  --template-body file://datamasque-crossaccount-s3bucket-access.yaml \
   --parameters \
-        ParameterKey=RoleName,ParameterValue=datamasque-crossaccount-role \
-        ParameterKey=DataMasqueRoleARN,ParameterValue=${DataMasqueRoleARN} \
-  --capabilities CAPABILITY_NAMED_IAM
-```
+        ParameterKey=CrossAccountRole,ParameterValue=\"${CrossAccountRole}\" \
+        ParameterKey=PolicyName,ParameterValue=datamasque-s3access-policy \
+        ParameterKey=DestinationBuckets,ParameterValue=\"${DestinationBucketsArns}\" \
+        ParameterKey=SourceBuckets,ParameterValue=\"${SourceBucketsArns}\" \
+        ParameterKey=SourceBucketsPrefixes,ParameterValue=\"${SourceBucketsPrefixes}\" \
+        ParameterKey=DestinationBucketsPrefixes,ParameterValue=\"${DestinationBucketsPrefixes}\" \
+        ParameterKey=DmRoleName,ParameterValue=${DmRoleName} \
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
 
-#### Destination (Read Write):
-This template will create an IAM role that can be assumed by the role in Account A, and it attaches a policy that specifies read write to all S3 buckets for masking and write. The template will create a Role named `datamasque-crossaccount-role` and also a policy required for Writing files `datamasque-crossacount-policy`. It's recommended to use this template in accounts defining as Destination of the data, non production, etc.
-
-[datamasque-crossaccount-role-RW-dest.yaml](datamasque-crossaccount-role-RW-dest.yaml)
-
-```shell
-export DataMasqueRoleARN=arn:aws:iam::<account>>:role/<EC2/EKS role>
-aws cloudformation create-stack \
-  --stack-name datamasque-crossaccount-role \
-  --template-body file://datamasque-crossaccount-role-RW-dest.yaml \
-  --parameters \
-        ParameterKey=RoleName,ParameterValue=datamasque-crossaccount-role \
-        ParameterKey=DataMasqueRoleARN,ParameterValue=${DataMasqueRoleARN} \
-  --capabilities CAPABILITY_NAMED_IAM
 ```
 
 
+## Scenario-3: Granting DataMasque Application Access to Source and Destination Buckets in Different AWS Accounts Using Bucket Policies
+
+In this scenario, when the DataMasque application and the source/destination buckets are configured in different AWS accounts, in addition to deploying the CloudFormation stack from Scenario-1, you will also need to apply the following bucket policies to the respective source and destination buckets.
+
+Source Bucket policy
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SourceBucketRead",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::111111111111:role/DM-Role"
+                ]
+            },
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>",
+                "arn:aws:s3:::<bucket-name>/*"
+            ]
+        },
+        {
+            "Sid": "SourceBucketPermissionCheck",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::111111111111:role/DM-Role"
+                ]
+            },
+            "Action": [
+                "s3:ListBucket*",
+                "s3:GetBucketAcl",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetBucketPublicAccessBlock"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>",
+            ]
+        },       
+        {
+            "Sid": "AllowSSLRequestsOnly",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>",
+                "arn:aws:s3:::<bucket-name>/*"
+            ],
+            "Condition": {
+                "Bool": {
+                    "aws:SecureTransport": "false"
+                }
+            }
+        }
+    ]
+}
+
+```
+
+
+Destination Bucket policy
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DestinationBucketWrite",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::111111111111:role/DM-Role"
+                ]
+            },
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject*"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>",
+                "arn:aws:s3:::<bucket-name>/*"
+            ]
+        },
+        {
+            "Sid": "DestinationBucketSecurityCheck",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::111111111111:role/DM-Role"
+                ]
+            },
+            "Action": [
+                "s3:ListBucket*",
+                "s3:GetBucketAcl",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetBucketObjectLockConfiguration"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>"
+            ]
+        },              
+        {
+            "Sid": "AllowSSLRequestsOnly",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::<bucket-name>",
+                "arn:aws:s3:::<bucket-name>/*"
+            ],
+            "Condition": {
+                "Bool": {
+                    "aws:SecureTransport": "false"
+                }
+            }
+        }
+    ]
+}
+```
+Please replace `arn:aws:iam::111111111111:role/DM-Role` with the actual role name attached to EC2 instance running DataMasque application.

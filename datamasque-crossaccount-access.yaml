@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: The CFN stack to enable DataMasque to mask data on S3 buckets in different accounts.
+
+Parameters:
+  DmRoleName:
+    Type: String
+    Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
+
+  CrossAccountRoles:
+    Type: CommaDelimitedList
+    Description: ARNs of IAM roles, separated by commas, that are deployed in the AWS accounts where the source buckets containing data to be masked are configured.
+
+  PolicyName:
+    Type: String
+    Default: datamasque-crossaccount-policy
+    Description: The name of the managed policy.
+
+Resources:
+  AssumeRolePolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Ref PolicyName
+      Description: "Policy to allow DataMasque permission to assume specified roles across AWS accounts."
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Resource: !Ref CrossAccountRoles
+      Roles:
+        - !Ref DmRoleName
+
+Outputs:
+  DatamasqueCrossaccountPolicy:
+    Description: "ARN of the managed policy created to allow cross-account role assume role operation."
+    Value: !Ref AssumeRolePolicy

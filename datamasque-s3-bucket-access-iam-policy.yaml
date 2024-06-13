@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: The CFN stack to enable DataMasque to mask data on S3 buckets in same account.
+Transform: "AWS::LanguageExtensions"
+
+Parameters:
+  DmRoleName:
+    Type: String
+    Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
+
+  DestinationBuckets:
+    Type: CommaDelimitedList
+    Description: Comma separated ARNs of target S3 buckets on which masked data is written.
+
+  SourceBuckets:
+    Type: CommaDelimitedList
+    Description: Comma separated ARNs of source S3 buckets on which data needs to be masked.
+
+  SourceBucketsPrefixes:
+    Type: CommaDelimitedList
+    Description: Comma separated prefixes of source S3 buckets from which data needs to be masked.
+
+  DestinationBucketsPrefixes:
+    Type: CommaDelimitedList
+    Description: Comma separated prefixes of destination S3 buckets from which data needs to be masked.
+
+  PolicyName:
+    Type: String
+    Default: datamasque-policy
+    Description: The name of the managed policy.
+
+Resources:
+  DmManagedPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Ref PolicyName
+      Description: "Policy to enable DataMasque to mask data on S3 buckets in same account"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListBucketInfo
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketAcl
+              - s3:GetBucketPolicyStatus
+              - s3:GetBucketPublicAccessBlock
+              - s3:GetBucketObjectLockConfiguration
+              - s3:GetEncryptionConfiguration
+            Resource: !Split
+              - ","
+              - !Join
+                - ","
+                - - !Join [",", !Ref SourceBuckets]
+                  - !Join [",", !Ref DestinationBuckets]
+          - Sid: ReadBucket
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Ref SourceBucketsPrefixes
+          - Sid: ReadWriteDeleteAccess
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: !Ref DestinationBucketsPrefixes
+      Roles:
+        - !Ref DmRoleName
+
+Outputs:
+  DatamasqueS3Access:
+    Description: "ARN of the managed policy created to enable DataMasque to mask data on S3 buckets."
+    Value: !Ref DmManagedPolicy
