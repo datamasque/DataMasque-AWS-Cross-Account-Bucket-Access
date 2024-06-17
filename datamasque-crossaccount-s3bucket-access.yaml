@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Deploy an IAM role with read-only access to S3 within a single account for DataMasque access.
 
 Parameters:
-  DmRoleName:
+  DmRoleArn:
     Type: String
     Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
 
@@ -36,7 +36,7 @@ Resources:
         Statement:
           - Effect: "Allow"
             Principal:
-              AWS: !Ref DmRoleName
+              AWS: !Ref DmRoleArn
             Action: "sts:AssumeRole"
       MaxSessionDuration: 3600
       Policies:

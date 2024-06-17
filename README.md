@@ -70,7 +70,7 @@ aws cloudformation create-stack \
 ```
 
 Required parameters for Cloudformation stack `datamasque-crossaccount-s3bucket-access`: 
-  - DmRoleName: IAM role `ARN` attached to ec2 instance running DataMasque application.
+  - DmRoleArn: IAM role `ARN` attached to ec2 instance running DataMasque application.
   - CrossAccountRole: IAM role name assumed by the DataMasque application to perform data masking operations on S3 buckets.
   - SourceBuckets: Comma-separated ARNs of the source S3 buckets where data needs to be masked.
   - DestinationBuckets: Comma-separated ARNs of the target S3 buckets where masked data will be written.
@@ -95,7 +95,7 @@ aws cloudformation create-stack \
         ParameterKey=SourceBuckets,ParameterValue=\"${SourceBucketsArns}\" \
         ParameterKey=SourceBucketsPrefixes,ParameterValue=\"${SourceBucketsPrefixes}\" \
         ParameterKey=DestinationBucketsPrefixes,ParameterValue=\"${DestinationBucketsPrefixes}\" \
-        ParameterKey=DmRoleName,ParameterValue=${DmRoleName} \
+        ParameterKey=DmRoleArn,ParameterValue=${DmRoleArn} \
   --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
 
 ```
