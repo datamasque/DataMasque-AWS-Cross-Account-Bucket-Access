@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains CloudFormation templates for deploying IAM roles and policies necessary to configure access between the DataMasque application (running on EC2 instances or EKS clusters) and AWS S3 buckets. Comprehensive scenarios covering various patterns are documented here. - https://datamasque.com/portal/documentation/2.19.1/file-connections.html#configuring-access-between-datamasque-and-aws-s3-buckets
+This repository contains CloudFormation templates for deploying IAM roles and policies necessary to configure access between the DataMasque application (running on EC2 instances or EKS clusters) and AWS S3 buckets. Comprehensive scenarios covering various patterns are documented here. - https://datamasque.com/portal/documentation/latest/file-connections.html#configuring-access-between-datamasque-and-aws-s3-buckets
 
 ### Prerequisites
 
