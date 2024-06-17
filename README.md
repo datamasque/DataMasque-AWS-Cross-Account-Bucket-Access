@@ -1,6 +1,6 @@
 # Cross-Account Access to S3 Buckets for masking runs.
 
-##Introduction
+## Introduction
 
 This repository contains CloudFormation templates for deploying IAM roles and policies necessary to configure access between the DataMasque application (running on EC2 instances or EKS clusters) and AWS S3 buckets. Comprehensive scenarios covering various patterns are documented here. - https://datamasque.com/portal/documentation/2.19.1/file-connections.html#configuring-access-between-datamasque-and-aws-s3-buckets
 
@@ -70,7 +70,7 @@ aws cloudformation create-stack \
 ```
 
 Required parameters for Cloudformation stack `datamasque-crossaccount-s3bucket-access`: 
-  - DmRoleName: IAM role name attached to ec2 instance running DataMasque application.
+  - DmRoleName: IAM role `ARN` attached to ec2 instance running DataMasque application.
   - CrossAccountRole: IAM role name assumed by the DataMasque application to perform data masking operations on S3 buckets.
   - SourceBuckets: Comma-separated ARNs of the source S3 buckets where data needs to be masked.
   - DestinationBuckets: Comma-separated ARNs of the target S3 buckets where masked data will be written.
@@ -91,7 +91,6 @@ aws cloudformation create-stack \
   --template-body file://datamasque-crossaccount-s3bucket-access.yaml \
   --parameters \
         ParameterKey=CrossAccountRole,ParameterValue=\"${CrossAccountRole}\" \
-        ParameterKey=PolicyName,ParameterValue=datamasque-s3access-policy \
         ParameterKey=DestinationBuckets,ParameterValue=\"${DestinationBucketsArns}\" \
         ParameterKey=SourceBuckets,ParameterValue=\"${SourceBucketsArns}\" \
         ParameterKey=SourceBucketsPrefixes,ParameterValue=\"${SourceBucketsPrefixes}\" \

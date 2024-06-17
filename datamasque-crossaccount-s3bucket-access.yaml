@@ -30,7 +30,7 @@ Resources:
   S3CrossAccountRole:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Ref DmRoleName
+      RoleName: !Ref CrossAccountRole
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
