@@ -27,8 +27,8 @@ Required Cloudformation parameters:
 export DmRoleName=DataMasque-Role
 export DestinationBucketsArns=arn:aws:s3:::dest-bucket1,arn:aws:s3:::dest-bucket2
 export SourceBucketsArns=arn:aws:s3:::source-bucket1,arn:aws:s3:::source-bucket2
-export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data,arn:aws:s3:::dest-bucket2/masked_data
-export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data,arn:aws:s3:::source-bucket2/unmasked/user_data
+export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data/*,arn:aws:s3:::dest-bucket2/masked_data/*
+export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data/*,arn:aws:s3:::source-bucket2/unmasked/user_data/*
 aws cloudformation create-stack \
   --stack-name datamasque-aws-account-s3bucket-access \
   --template-body file://datamasque-s3-bucket-access-iam-policy.yaml \
@@ -83,8 +83,8 @@ This CloudFormation stack should be deployed in the AWS account where the S3 buc
 export DmRoleName=DataMasque-Role
 export DestinationBucketsArns=arn:aws:s3:::dest-bucket1,arn:aws:s3:::dest-bucket2
 export SourceBucketsArns=arn:aws:s3:::source-bucket1,arn:aws:s3:::source-bucket2
-export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data,arn:aws:s3:::dest-bucket2/masked_data
-export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data,arn:aws:s3:::source-bucket2/unmasked/user_data
+export DestinationBucketsPrefixes=arn:aws:s3:::dest-bucket1/masked_data/*,arn:aws:s3:::dest-bucket2/masked_data/*
+export SourceBucketsPrefixes=arn:aws:s3:::source-bucket1/unmasked/credit_card_data/*,arn:aws:s3:::source-bucket2/unmasked/user_data/*
 export CrossAccountRole=arn:aws:iam::2222222222:role/datamasque-s3bucket-access-role
 aws cloudformation create-stack \
   --stack-name datamasque-crossaccount-s3bucket-access \
