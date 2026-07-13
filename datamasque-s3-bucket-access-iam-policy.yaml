@@ -1,11 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: The CFN stack to enable DataMasque to mask data on S3 buckets in same account.
-Transform: "AWS::LanguageExtensions"
 
 Parameters:
   DmRoleName:
     Type: String
-    Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
+    Description: The name of the DataMasque instance IAM role to which the policy will be attached (role name, not ARN).
 
   DestinationBuckets:
     Type: CommaDelimitedList
@@ -21,12 +20,24 @@ Parameters:
 
   DestinationBucketsPrefixes:
     Type: CommaDelimitedList
-    Description: Comma separated prefixes of destination S3 buckets from which data needs to be masked.
+    Description: Comma separated prefixes of destination S3 buckets to which masked data is written.
 
   PolicyName:
     Type: String
     Default: datamasque-policy
     Description: The name of the managed policy.
+
+  KmsKeyArns:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: >-
+      Optional. ARNs of the SSE-KMS keys protecting the source/destination buckets, separated by commas.
+      Leave empty when buckets use SSE-S3 (AES256). When set, the policy grants kms:Decrypt and
+      kms:GenerateDataKey on those keys so masking can read/write KMS-encrypted objects.
+
+Conditions:
+  # True when at least one KMS key ARN was supplied (Default "" yields a single empty element).
+  HasKmsKeys: !Not [!Equals [!Join ["", !Ref KmsKeyArns], ""]]
 
 Resources:
   DmManagedPolicy:
@@ -64,6 +75,16 @@ Resources:
               - s3:GetObject
               - s3:DeleteObject
             Resource: !Ref DestinationBucketsPrefixes
+          # SSE-KMS support: only present when KmsKeyArns is provided.
+          - !If
+            - HasKmsKeys
+            - Sid: KmsDataKeyAccess
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !Ref KmsKeyArns
+            - !Ref AWS::NoValue
       Roles:
         - !Ref DmRoleName
 

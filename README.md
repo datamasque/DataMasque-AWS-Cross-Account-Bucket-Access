@@ -209,7 +209,9 @@ Source bucket policy:
                 "s3:ListBucket*",
                 "s3:GetBucketAcl",
                 "s3:GetBucketPolicyStatus",
-                "s3:GetBucketPublicAccessBlock"
+                "s3:GetBucketPublicAccessBlock",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:GetEncryptionConfiguration"
             ],
             "Resource": [
                 "arn:aws:s3:::<bucket-name>"
@@ -250,7 +252,8 @@ Destination bucket policy:
             },
             "Action": [
                 "s3:PutObject",
-                "s3:GetObject"
+                "s3:GetObject",
+                "s3:DeleteObject"
             ],
             "Resource": [
                 "arn:aws:s3:::<bucket-name>",
@@ -269,7 +272,9 @@ Destination bucket policy:
                 "s3:ListBucket*",
                 "s3:GetBucketAcl",
                 "s3:GetBucketPolicyStatus",
-                "s3:GetBucketObjectLockConfiguration"
+                "s3:GetBucketPublicAccessBlock",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:GetEncryptionConfiguration"
             ],
             "Resource": [
                 "arn:aws:s3:::<bucket-name>"
@@ -297,6 +302,39 @@ Destination bucket policy:
 Replace `arn:aws:iam::111111111111:role/DM-Role` with the actual ARN of the role
 attached to the EC2 instance running the DataMasque application, and replace every
 `<bucket-name>` with your own bucket.
+
+### SSE-KMS encrypted buckets
+
+If the remote buckets are encrypted with SSE-KMS, the bucket policies above are not
+enough. A KMS key has its own resource policy in the account that owns it, and AWS
+requires **both** sides to authorise: the DataMasque role's identity policy (the
+`KmsKeyArns` parameter on the Scenario 1 stack grants `kms:Decrypt` and
+`kms:GenerateDataKey`) **and** the key policy in the bucket account. Without the key
+policy grant everything deploys cleanly, but masking fails with `AccessDenied` the
+moment it touches an encrypted object.
+
+Add the DataMasque role as a principal on the key policy of each key protecting a
+source or destination bucket:
+
+```json
+{
+    "Sid": "AllowDataMasqueUseOfTheKey",
+    "Effect": "Allow",
+    "Principal": {
+        "AWS": "arn:aws:iam::111111111111:role/DM-Role"
+    },
+    "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey"
+    ],
+    "Resource": "*"
+}
+```
+
+`"Resource": "*"` in a key policy scopes to the key the policy is attached to, not
+to every key in the account. Scenario 2 does not need this step — the cross-account
+role it creates lives in the same account as the key, so the identity policy alone
+satisfies KMS.
 
 ---
 
