@@ -4,7 +4,7 @@ Description: The CFN stack to enable DataMasque to mask data on S3 buckets in di
 Parameters:
   DmRoleName:
     Type: String
-    Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
+    Description: The name of the DataMasque instance IAM role to which the policy will be attached (role name, not ARN).
 
   CrossAccountRoles:
     Type: CommaDelimitedList

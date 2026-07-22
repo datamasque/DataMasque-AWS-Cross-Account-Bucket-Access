@@ -1,0 +1,58 @@
+name: ci
+on:
+  push: { branches: ["**"] }
+  pull_request:
+permissions:
+  id-token: write   # for OIDC role assumption in the validate step
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install cfn-lint
+      # Every datamasque-*.yaml here is a CloudFormation template, so lint them all.
+      - name: cfn-lint templates
+        run: cfn-lint datamasque-*.yaml
+      # §7.9 least-privilege guard: rendered policies must not grant blanket access.
+      - name: no over-broad permissions in templates
+        run: |
+          set -e
+          if grep -nE '^[[:space:]]*-?[[:space:]]*s3:\*' datamasque-*.yaml; then
+            echo "::error::found s3:* wildcard action in a template"; exit 1
+          fi
+          if grep -nE 'Resource:[[:space:]]*["'\'']?\*["'\'']?[[:space:]]*$' datamasque-*.yaml; then
+            echo "::error::found Resource: \"*\" in a template"; exit 1
+          fi
+          echo "no over-broad permissions found"
+      # Live CloudFormation validate-template calls the CFN API, so it needs AWS
+      # creds. Runs only when the AWS_ROLE_ARN secret is configured (the canonical
+      # repo); skipped cleanly on forks and PRs without secrets. cfn-lint above is
+      # the always-on offline gate. We gate on the secret's presence rather than
+      # continue-on-error so a genuine OIDC/auth failure still fails the build.
+      - name: check for AWS credentials
+        id: haveaws
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -n "$AWS_ROLE_ARN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "AWS_ROLE_ARN not set; skipping live validate-template"
+          fi
+      - name: configure AWS credentials
+        if: steps.haveaws.outputs.present == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: cloudformation validate-template
+        if: steps.haveaws.outputs.present == 'true'
+        run: |
+          set -e
+          for t in datamasque-*.yaml; do
+            echo "validating $t"
+            aws cloudformation validate-template --template-body "file://$t"
+          done

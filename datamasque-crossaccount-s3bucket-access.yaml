@@ -1,14 +1,22 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploy an IAM role with read-only access to S3 within a single account for DataMasque access.
+Description: Deploy a cross-account IAM role granting DataMasque read/write/delete access to the specified S3 buckets and prefixes.
 
 Parameters:
   DmRoleArn:
     Type: String
-    Description: The ARN of the DataMasque instance IAM role to which the policy will be attached.
+    Description: The ARN of the DataMasque instance IAM role that is trusted to assume the cross-account role created by this stack.
 
   CrossAccountRole:
     Type: String
-    Description: IAM role name that is assumed by the DataMasque application to execute masking runs on S3 buckets.
+    Description: IAM role name created by this stack and assumed by the DataMasque application to execute masking runs on S3 buckets.
+
+  KmsKeyArns:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: >-
+      Optional. ARNs of the SSE-KMS keys protecting the source/destination buckets, separated by commas.
+      Leave empty when buckets use SSE-S3 (AES256). When set, the role is granted kms:Decrypt and
+      kms:GenerateDataKey on those keys so masking can read/write KMS-encrypted objects.
 
   DestinationBuckets:
     Type: CommaDelimitedList
@@ -24,7 +32,11 @@ Parameters:
 
   DestinationBucketsPrefixes:
     Type: CommaDelimitedList
-    Description: Comma separated prefixes of destination S3 buckets from which data needs to be masked.
+    Description: Comma separated prefixes of destination S3 buckets to which masked data is written.
+
+Conditions:
+  # True when at least one KMS key ARN was supplied (Default "" yields a single empty element).
+  HasKmsKeys: !Not [!Equals [!Join ["", !Ref KmsKeyArns], ""]]
 
 Resources:
   S3CrossAccountRole:
@@ -40,7 +52,7 @@ Resources:
             Action: "sts:AssumeRole"
       MaxSessionDuration: 3600
       Policies:
-        - PolicyName: "datamasque-crossacount-policy"
+        - PolicyName: "datamasque-crossaccount-policy"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -71,6 +83,20 @@ Resources:
                   - s3:GetObject
                   - s3:DeleteObject
                 Resource: !Ref DestinationBucketsPrefixes
+        # SSE-KMS support: only attached when KmsKeyArns is provided.
+        - !If
+          - HasKmsKeys
+          - PolicyName: "datamasque-crossaccount-kms-policy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: KmsDataKeyAccess
+                  Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: !Ref KmsKeyArns
+          - !Ref AWS::NoValue
 
 Outputs:
   DatamasqueCrossaccountRole:
